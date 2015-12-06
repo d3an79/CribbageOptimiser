@@ -1,0 +1,425 @@
+---
+title: "Cribbage hand optimiser"
+author: "Dean Findlay"
+date: "24 November 2015"
+output: html_document
+---
+
+## Initialise the data frame 
+
+
+The array will contain 52 rows with columns of value, suit and split (bool to show if this was cut)  
+
+The cards will be arranged:  
+1,1,1,1,2,2,2,2,3... 
+c,d,h,s,c,d,h,s...
+0,0,0,0,0...
+
+
+
+
+## Choose six random cards from the pack as well as the cut card (to be used later)  
+
+Random cards will be used first then changed to chosen cards once up and running   
+
+
+```{r}
+# package this up to a function
+
+# create the pack 
+pack <- data.frame( value = rep(1:13, each = 4),
+                    suit = rep(c("c","d","h","s"), 13),
+                    cut = FALSE,
+                    stringsAsFactors = FALSE) 
+# create a vector with the position of the 6 cards in the pack
+randoms <- sample(1:52, 6)
+# use this vector to subset from the pack
+hand <- pack[randoms,]
+# remove the chosen cards from the pack
+pack <- pack[-randoms,]
+
+# change the 5th card to the cut card and remove 6th - only for use while testing
+hand[5,3]<- TRUE
+hand<-hand[1:5,]
+
+# order the hand by value and suit
+hand <- hand[order(hand[,1], hand[,2]),]
+
+```
+
+
+```{r}
+# pick the cut card location
+cutLoc <- sample(1:46,1)
+# create the card
+cutCard <- pack[cutLoc,]
+# change the 'cut' field to TRUE
+cutCard[,"cut"] <- TRUE
+# remove it from the pack
+pack <- pack[-cutLoc,]
+
+
+```
+
+
+
+## define the functions that score the hand
+
+the hands are scored using the cut card also although this card can sometimes act differently than cards in the hand as will be discussed.  
+All the functions are passed a data frame with the hand and the cut card in it ordered by value and suit.  
+
+### 15's  
+
+every combination of cards that adds up to 15 scores 2 points. Cards can be used multiple times but the combinations of all sets must be unique i.e. a hand with one 8 and two 7's can have to sets of 15's one for each 7 with the 8.  
+
+I can't think of any elegant ways to achieve this so a brute force method may have to be used, not too bad though as there are not too many combinations of cards to cycle through.  
+also as the hand is ordered then if any combination of 2 cards are > 15 the remaining combinations will also be > 15 so the function can end.  
+```{r}
+
+count15s<- function(hand)
+{
+
+  # define recursive function to keep checking against the rest of the hand
+  # vect = vector of the values in the hand with face cards = 10
+  # i = current iteration in the loop
+  # cntr = current No of cards from from i that is being used
+  # total = the current total of the values of cards currently in use
+  # points = current amount of points scored by the hand
+  moreCards<- function(vect, i, cntr, total, points, startCntr)
+  {
+    # check to see if trying to look at a 6th card
+    if((cntr+i) > 5)
+    {
+      # check to see if start counter at end
+      # yes means leave function as all cards for this i looked at
+      if((startCntr+i) > 5)
+      {
+        return(points)
+      }
+      # no means add one to startCntr and start carry on with function 
+      else
+    {
+      startCntr<- startCntr + 1
+      # make total = i.value
+      total<- vect[i]
+      # make cntr = startCntr
+      cntr = startCntr
+      # call morecards 
+      moreCards(vect, i, cntr, total, points, startCntr)
+    }
+  }
+  # ok to carry on with function
+  else
+  {
+    # add the next card to the total
+    total<- total + vect[i+cntr]
+    
+    # check to see if total greater than 15 
+    if(total > 15)
+    {
+      # check to see if there is a gap between the startCntr and cntr > 1
+      # this will dictate whether previous cards need to be removed and later
+      # ones added to ensure all combinations checked
+      
+      # only interested in finding combination using i & startCntr in them as other will be taken care
+      # of later on in the recursion
+      
+      # if true               !!!!!!!!!!!!!!!!!!!! this is the problem bit !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      # get this bit to check for whatever and do all the stuff required to get it to the startCntr++ bit
+      # then get rid of the else statement at the end and just have it run through that bit every time
+      
+      if(cntr - startCntr > 1)
+      {
+        
+        # if diff = 3
+        if(cntr - startCntr == 3)
+        {
+          # just check the 3 combinations available for = 15
+          if(vect[i]+vect[i+startCntr]+vect[i+cntr] == 15)
+          {
+            points<- points + 2
+          }
+          
+          if(vect[i]+vect[i+startCntr]+ vect[i+cntr-2]+vect[i+cntr] == 15)
+          {
+            points<- points + 2
+          }
+          
+          if(vect[i]+vect[i+startCntr]+ vect[i+cntr-1]+vect[i+cntr] == 15)
+          {
+            points<- points + 2
+          }  
+        }
+        # else diff = 2
+        else
+        {
+          # remove the value of the previous card from the total
+          total<- total - vect[i+cntr-1]
+          # check to see if the total is 15 and add points if true
+          if(total == 15)
+          {
+            points<- points + 2
+          }
+          # check to see if there is a card further in the hand that needs adding in
+          # i.e a hand of vals 4,4,4,4,7 would be > 15 by card 4
+          # thisd can only happen when i=1 startCntr=1 & cntr = 3
+          if(i+cntr < 5)
+          {
+            # just check the 3 combinations available for = 15
+            if(vect[i]+vect[i+startCntr]+vect[i+cntr+1] == 15)
+            {
+              points<- points + 2
+            }
+            
+            if(vect[i]+vect[i+startCntr]+ vect[i+cntr-1]+vect[i+cntr+1] == 15)
+            {
+              points<- points + 2
+            }
+            
+            if(vect[i]+vect[i+startCntr]+ vect[i+cntr]+vect[i+cntr+1] == 15)
+            {
+              points<- points + 2
+            }
+          }
+        }
+      }
+      
+      # move startCntr onto the next card to check further combinations
+      startCntr<- startCntr + 1
+      # make total = i.value
+      total<- vect[i]
+      # make cntr = startCntr
+      cntr = startCntr
+      # call morecards 
+      moreCards(vect, i, cntr, total, points, startCntr)
+      
+      
+    }
+    #else if check to see if total = 15 if true then points need adding and
+    # the last card needs removing from the total and the next card adding
+    # in case it is of the same value therfore needing more ponts
+    else if(total == 15)
+    {
+      
+      # check for diff in startCntr and cntr to see if any other combos are needed to be checked
+      # also if startCntr = cntr then further combos will be taken care of later on in the recursion
+      
+      if(startCntr == cntr)
+      {
+        points<- points + 2
+        # move startCntr onto the next card to check further combinations
+        startCntr<- startCntr + 1
+        # make total = i.value
+        total<- vect[i]
+        # make cntr = startCntr
+        cntr = startCntr
+        # call morecards 
+        moreCards(vect, i, cntr, total, points, startCntr)
+      }
+      else
+      {
+        points<- points + 2
+        total <- total - vect[i+cntr]
+        cntr<- cntr + 1
+        moreCards(vect, i, cntr, total, points,startCntr)
+      }
+      
+    }
+    #else the total is less than 15 and more cards need adding
+    else
+    {
+      cntr<- cntr + 1
+      moreCards(vect, i, cntr, total, points, startCntr)
+    }
+  }
+}
+
+  # initialise points
+  points <- 0
+  
+  #obtain values from hand
+  vect<- hand[,1]
+  # change the values of any 'face' cards from 11, 12 or 13 to 10
+  vect[vect>10]<-10
+
+  for(i in 1:4)
+  {
+    startCntr <- 1
+    cntr<- 1
+    total <- vect[i]
+    
+#    # if combo of 2 cards greater than 15 exit the loop
+#    if(total + vect[i+a] > 15)
+#    {
+#      return(points)
+#    }
+  
+    points<- moreCards(vect, i, cntr, total, points, startCntr)
+  }
+  
+  return(points)
+}
+
+```
+
+
+### Pairs
+
+every combination of pairs will be awarded 2 points. each card can be used multiple times but the combination of both cards must be unique i.e. a hand with 3 7's will score 6 points; 2 for each combination of pairs.  
+
+
+```{r}
+
+# iterates through finding duplicates multpile times in order to account for
+# 3 and four of a kind adding the extra points where applicable
+pair <- function(hand){
+  points<- 0
+  
+  kind2 <- hand[duplicated(hand[,1]),1]
+  points = points + length(kind2) * 2
+  kind3 <- kind2[duplicated(kind2)]
+  points = points + length(kind3) * 2
+  kind4 <- kind3[duplicated(kind3)]
+  points = points + length(kind4) * 2
+  
+  return(points)
+}
+
+```
+
+
+### Flush  
+
+To score a flush each card in the hand must be of the same suit and will score 4 points if this condition is met. If the cut card is also the same suit then an extra point willbe awarded.  
+
+```{r}
+
+flushScorer <- function(hand){
+  # reduce the hand to unique suits, if there is only 1 suit then add 4 to points
+  if (length(unique(hand[hand$cut == FALSE,2])) == 1){
+    points <- 4
+    # if the suit of the cut card matches the suit of the cards in the hand
+    # make points = 5
+    if(unique(hand[hand$cut == TRUE,2]) == unique(hand[hand$cut == FALSE,2])){
+      points <- 5
+    }
+    # if there is more than one unique suit in the pack then points = 0
+  } else { 
+    points <- 0}
+  
+  return(points)
+}
+
+
+```
+
+
+
+### Runs  
+
+Runs are any combination of 3 or more cards in sequential order and score one point for each card. cards can be used multiple times but the combination to make the runs must be unique i.e. a hand that has the cards 2h, 3h, 3s, 4h, 9h can have 2 runs of:  
+2h, 3h, 4h,  
+2h, 3s, 4h  
+
+A further rule is that runs must be the maximum length that they can be i.e. a run of 1,2,3,4 cannot be split into 3 runs of:  
+1,2,3  
+2,3,4  
+1,2,3,4  
+
+
+
+### One for his nob
+
+if a hand has a jack that has the same suit as the cut card then an extra point is awarded
+
+```{r}
+
+nobs<- function(hand){
+  points <- 0
+  # returns the suit of any cards from hand (not cut) that are jacks
+  jacks <- hand[hand$value==11 & hand$cut==FALSE,2]
+
+  # if length of jacks is greater than zero get the suit of the cut card
+  # join jacks and cut card together and sum the check for duplicates
+
+  if (length(jacks) > 0){
+    # returns the suit of the cut card
+    cut <- hand[hand$cut==TRUE,2]
+    suits <- c(jacks,cut)
+    points <- sum(duplicated(suits))
+  }
+
+  return(points)
+  
+}
+
+```
+
+
+## Create a function that takes the hand, containing the cut card, and calls all point scoring functions to calculate the score
+
+
+## Loop through the different combinations of discarded cards, calculating the points and creating a data frame to hold results
+
+The function will need to run 15 times in order to choose every combination of discarded cards  
+a data frame will need to be created before any loops to hold the results for each set of discarded cards and the points they score for each cut card.
+
+either one data frame for all or one for each set of discarded cards?
+
+
+ 
+### this works through the discard positions
+a <- 1:6
+
+for(i in 1:5)
+{
+  for(j in i+1:(6-i))
+  {
+    print(c(i,j))
+    # use index i and j to discard cards and create hand
+    
+    # loop to go through each remaining card in the pack as the cut card and work out points
+    
+      # function to calculate points here
+  }
+}
+
+
+
+
+
+
+
+## Displaying the output
+
+To be of any use the output needs to display the best hands, but what makes a hand the best?  
+
+Metrics could be any or a combination of the folloing:
+- Maximum score  
+- Mean score  
+- Quartile ranges  
+- Mode  
+- Sum of all scores  
+
+
+With the 'best' defined the output needs to be displayed  
+
+Options could be:
+- Display all 15 as bar graphs  
+- Display the top 5 as bar graphs  
+- Tabular summary of all or top hands with a selection of bar graphs  
+
+When ported to Shiny it may be possible to display the tabular data with an option to dsiplay specific graphs or a range of the top ones  
+
+
+
+
+
+
+
+
+
+
+
+
+
