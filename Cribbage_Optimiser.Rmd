@@ -38,7 +38,7 @@ hand <- pack[randoms,]
 # remove the chosen cards from the pack
 pack <- pack[-randoms,]
 
-createRandomHand<- function(pack,hand)
+createRandomHand<- function()
 {
   pack <- data.frame( value = rep(1:13, each = 4),
                       suit = rep(c("c","d","h","s"), 13),
@@ -94,27 +94,28 @@ also as the hand is ordered then if any combination of 2 cards are > 15 the rema
 ```{r}
 
 count15s<- function(hand)
-{
-
+  {
+  
   # define recursive function to keep checking against the rest of the hand
   # vect = vector of the values in the hand with face cards = 10
   # i = current iteration in the loop
   # cntr = current No of cards from from i that is being used
   # total = the current total of the values of cards currently in use
   # points = current amount of points scored by the hand
-  moreCards<- function(vect, i, cntr, total, points, startCntr)
+  # really not happy with this function but it seems to be working for now:$
+moreCards<- function(vect, i, cntr, total, points, startCntr)
+{
+  # check to see if trying to look at a 6th card
+  if((cntr+i) > 5)
   {
-    # check to see if trying to look at a 6th card
-    if((cntr+i) > 5)
+    # check to see if start counter at end
+    # yes means leave function as all cards for this i looked at
+    if((startCntr+i) > 5)
     {
-      # check to see if start counter at end
-      # yes means leave function as all cards for this i looked at
-      if((startCntr+i) > 5)
-      {
-        return(points)
-      }
-      # no means add one to startCntr and start carry on with function 
-      else
+      return(points)
+    }
+    # no means add one to startCntr and start carry on with function 
+    else
     {
       startCntr<- startCntr + 1
       # make total = i.value
@@ -137,14 +138,8 @@ count15s<- function(hand)
       # check to see if there is a gap between the startCntr and cntr > 1
       # this will dictate whether previous cards need to be removed and later
       # ones added to ensure all combinations checked
-      
       # only interested in finding combination using i & startCntr in them as other will be taken care
       # of later on in the recursion
-      
-      # if true               !!!!!!!!!!!!!!!!!!!! this is the problem bit !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      # get this bit to check for whatever and do all the stuff required to get it to the startCntr++ bit
-      # then get rid of the else statement at the end and just have it run through that bit every time
-      
       if(cntr - startCntr > 1)
       {
         
@@ -219,8 +214,7 @@ count15s<- function(hand)
     {
       
       # check for diff in startCntr and cntr to see if any other combos are needed to be checked
-      # also if startCntr = cntr then further combos will be taken care of later on in the recursion
-      
+      # if startCntr = cntr then further combos will be taken care of later on in the recursion
       if(startCntr == cntr)
       {
         points<- points + 2
@@ -236,11 +230,35 @@ count15s<- function(hand)
       else
       {
         points<- points + 2
-        total <- total - vect[i+cntr]
-        cntr<- cntr + 1
-        moreCards(vect, i, cntr, total, points,startCntr)
+        
+        # while next card = current card & not greater than 5 cards
+        # cntr++ 
+        while(i+cntr+1 < 6 & vect[i+cntr] == vect[i+cntr+1])
+        {
+          points<- points + 2
+          cntr<- cntr+1
+        }
+        
+        # check to see if there is another card behind which didn't match which needs looking at
+        # i.e 2,3,5,5,10 - the 10 would make 15 with the 2&3 but StartCntr gets moved on before this
+        if(i + cntr + 1 < 6)
+        {
+          # check if this combo = 15
+          if(vect[i] + vect[i+startCntr] + vect[i+cntr+1] == 15)
+          {
+            points<- points + 2
+          }
+        }
+        
+        startCntr<- startCntr + 1
+        # make total = i.value
+        total<- vect[i]
+        # make cntr = startCntr
+        cntr<- startCntr
+        # call morecards 
+        moreCards(vect, i, cntr, total, points, startCntr)
+        
       }
-      
     }
     #else the total is less than 15 and more cards need adding
     else
@@ -250,7 +268,7 @@ count15s<- function(hand)
     }
   }
 }
-
+  
   # initialise points
   points <- 0
   
@@ -258,24 +276,24 @@ count15s<- function(hand)
   vect<- hand[,1]
   # change the values of any 'face' cards from 11, 12 or 13 to 10
   vect[vect>10]<-10
-
+  
   for(i in 1:4)
-  {
-    startCntr <- i
+    {
+    startCntr <- 1
     cntr<- 1
     total <- vect[i]
     
-#    # if combo of 2 cards greater than 15 exit the loop
-#    if(total + vect[i+a] > 15)
-#    {
-#      return(points)
-#    }
-  
+    #    # if combo of 2 cards greater than 15 exit the loop
+    #    if(total + vect[i+a] > 15)
+    #    {
+    #      return(points)
+    #    }
+    
     points<- moreCards(vect, i, cntr, total, points, startCntr)
-  }
+    }
   
   return(points)
-}
+  }
 
 ```
 
@@ -496,13 +514,17 @@ calculateScore<- function(hand)
 ## Loop through the different combinations of discarded cards, calculating the points and creating a data frame to hold results
 
 The function will need to run 15 times in order to choose every combination of discarded cards  
-a data frame will need to be created before any loops to hold the results for each set of discarded cards and the points they score for each cut card.
+a data table will need to be created before any loops to hold the results for each set of discarded cards and the points they score for each cut card.
 
 
 function will take a hand of 6 cards, remove 2 at a time covering all combinations and calculate the score for each remaining hand with all remaining cards in the pack as the cut card.  
 
 
-either one data frame for all or one for each set of discarded cards?
+Data table should end up with 690 rows and 4 columns:
+hand - The four remaining cards afterdiscarding two for the crib. Typical format of "1h,2d,5c,12s"
+discarded - The two cards discarded for the crib. Typical format of "6c,7c"
+cutcard - The card used to represent the cut. Typical format of "9d"
+points - the points that the hand scored using the cut card. Typical value of
 
 
 ```{r}
