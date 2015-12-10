@@ -354,11 +354,27 @@ calculateScore<- function(hand)
 
 # calculateOneHand
 
+
+example of binding data.tables
+x<-rbindlist(list(dt,dd),use.names = F,fill = F)
+
 ```{r}
 #takes 4 cards from the full hand and work out the scores for each cut card
-calculateOneHand<- function(chosenHand)
+# returns a data.table with 46 rows and columns as detailed in cribbage_optimiser.rmd
+# chosen hand is a date.frame of the 4 cards to be used
+# discardedCards is a character string with a typical format of "6c,7c"
+# targetTable <- calculateOneHand(chosenHand, "6c,7c")
+calculateOneHand<- function(chosenHand, discardedCards="")
 {
+  #initialise points
   points<- 0
+  #create the data table with 46 rows filling in the first column with the hand
+  handPoints<- data.table(hand= paste(paste(c(h[1,1],h[1,2]),collapse=""),paste(c(h[2,1],h[2,2]),collapse="")
+                                      ,paste(c(h[3,1],h[3,2]),collapse="")
+                                      ,paste(c(h[4,1],h[4,2]),collapse=""),sep=","), # a better way of doing this?
+                          discarded= discardedCards,
+                          cutcard= "",
+                          score= rep(0,46)) # allocate 0 to the table 46 times to ensure that there are enough rows to insert into
   
   # loop for 46 times getting the remaining cards in the pack
   for(i in 1:46)
@@ -373,13 +389,14 @@ calculateOneHand<- function(chosenHand)
     hand <- hand[order(hand[,1], hand[,2]),]
     
     #pass hand to calculateScore
-    points<- points + calculateScore(hand)
+    points<- calculateScore(hand)
     
-    print(points)
-    
-    # need to pass back data in the form om
+    # use i to place at row level and add the cut card and points to the data.table
+    handPoints[i,score:=points]
+    handPoints[i,cutcard:=paste(c(pack[i,1],pack[i,2]),collapse="")]
   }
 
+  return(handPoints)
 }
 
 ```

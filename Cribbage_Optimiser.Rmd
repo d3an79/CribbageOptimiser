@@ -526,6 +526,10 @@ discarded - The two cards discarded for the crib. Typical format of "6c,7c"
 cutcard - The card used to represent the cut. Typical format of "9d"
 points - the points that the hand scored using the cut card. Typical value of
 
+### calculateOneHand 
+
+will take onecombination of the hand with 2 discardeed cards and use calculateScore to obtain the points for each cut card.
+the data.table to hold all of the information will be created in a higher scope and use rbind or rbind list to append the records in
 
 ```{r}
 
