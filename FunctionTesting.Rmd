@@ -355,8 +355,7 @@ calculateScore<- function(hand)
 # calculateOneHand
 
 
-example of binding data.tables
-x<-rbindlist(list(dt,dd),use.names = F,fill = F)
+
 
 ```{r}
 #takes 4 cards from the full hand and work out the scores for each cut card
@@ -369,9 +368,10 @@ calculateOneHand<- function(chosenHand, discardedCards="")
   #initialise points
   points<- 0
   #create the data table with 46 rows filling in the first column with the hand
-  handPoints<- data.table(hand= paste(paste(c(h[1,1],h[1,2]),collapse=""),paste(c(h[2,1],h[2,2]),collapse="")
-                                      ,paste(c(h[3,1],h[3,2]),collapse="")
-                                      ,paste(c(h[4,1],h[4,2]),collapse=""),sep=","), # a better way of doing this?
+  handPoints<- data.table(playerHand= paste(paste(c(chosenHand[1,1],chosenHand[1,2]),collapse="")
+                                      ,paste(c(chosenHand[2,1],chosenHand[2,2]),collapse="")
+                                      ,paste(c(chosenHand[3,1],chosenHand[3,2]),collapse="")
+                                      ,paste(c(chosenHand[4,1],chosenHand[4,2]),collapse=""),sep=","), # a better way of doing this?
                           discarded= discardedCards,
                           cutcard= "",
                           score= rep(0,46)) # allocate 0 to the table 46 times to ensure that there are enough rows to insert into
@@ -403,8 +403,57 @@ calculateOneHand<- function(chosenHand, discardedCards="")
 
 
 
+# calculate all hands
+
+```{r}
+
+# takes a hand of 6 cards and calls calculateOneHand with each combination of two cards discarded
+# uses rbind to fill to populate a data.table of all combinations of hands and cut cards
+
+calculateAllHands<- function(hand)
+{
+  allCombos<- data.table(playerHand=character(0), discarded=character(0), cutcard=character(0), score=integer(0))
+  
+  # loop through different combinations of discards
+  for(i in 1:5)
+  {
+    for(j in i+1:(6-i))
+    {
+      
+      # use index i and j to discard cards and create hand
+      chosenHand<- hand[c(-i,-j),]
+      
+      # create string discards from the discarded cards
+      discards<- paste(c(
+        paste(c(hand[i,1],hand[i,2]),collapse=""),
+        paste(c(hand[j,1],hand[j,2]),collapse="")  
+      ),collapse=",")
+      
+      # use rbind to populate data.table using calculateOneHand
+      allCombos<- rbind(allCombos,calculateOneHand(chosenHand, discards))
+    }
+  }
+  
+  return(allCombos)
+}
 
 
+
+```
+a <- 1:6
+
+for(i in 1:5)
+{
+  for(j in i+1:(6-i))
+  {
+    print(c(i,j))
+    # use index i and j to discard cards and create hand
+    
+    # loop to go through each remaining card in the pack as the cut card and work out points
+    
+      # function to calculate points here
+  }
+}
 
 
 
