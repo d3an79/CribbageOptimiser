@@ -532,7 +532,41 @@ will take onecombination of the hand with 2 discardeed cards and use calculateSc
 the data.table to hold all of the information will be created in a higher scope and use rbind or rbind list to append the records in
 
 ```{r}
+calculateOneHand<- function(chosenHand, discardedCards="")
+{
+  #initialise points
+  points<- 0
+  #create the data table with 46 rows filling in the first column with the hand
+  handPoints<- data.table(playerHand= paste(paste(c(chosenHand[1,1],chosenHand[1,2]),collapse="")
+                                      ,paste(c(chosenHand[2,1],chosenHand[2,2]),collapse="")
+                                      ,paste(c(chosenHand[3,1],chosenHand[3,2]),collapse="")
+                                      ,paste(c(chosenHand[4,1],chosenHand[4,2]),collapse=""),sep=","), # a better way of doing this?
+                          discarded= discardedCards,
+                          cutcard= "",
+                          score= rep(0,46)) # allocate 0 to the table 46 times to ensure that there are enough rows to insert into
+  
+  # loop for 46 times getting the remaining cards in the pack
+  for(i in 1:46)
+  {
+    # append cut card to hand
+    hand<- rbind(chosenHand, pack[i,])
+    
+    # set cut card 'cut' to TRUE
+    hand[5,3]<- TRUE
+    
+    # order the hand by value and suit
+    hand <- hand[order(hand[,1], hand[,2]),]
+    
+    #pass hand to calculateScore
+    points<- calculateScore(hand)
+    
+    # use i to place at row level and add the cut card and points to the data.table
+    handPoints[i,score:=points]
+    handPoints[i,cutcard:=paste(c(pack[i,1],pack[i,2]),collapse="")]
+  }
 
+  return(handPoints)
+}
 
 
 
@@ -540,21 +574,37 @@ the data.table to hold all of the information will be created in a higher scope 
 ```
 
  
-### this works through the discard positions
-a <- 1:6
+### calculate all hands
 
-for(i in 1:5)
+```{r}
+calculateAllHands<- function(hand)
 {
-  for(j in i+1:(6-i))
+  allCombos<- data.table(playerHand=character(0), discarded=character(0), cutcard=character(0), score=integer(0))
+  
+  # loop through different combinations of discards
+  for(i in 1:5)
   {
-    print(c(i,j))
-    # use index i and j to discard cards and create hand
-    
-    # loop to go through each remaining card in the pack as the cut card and work out points
-    
-      # function to calculate points here
+    for(j in i+1:(6-i))
+    {
+      
+      # use index i and j to discard cards and create hand
+      chosenHand<- hand[c(-i,-j),]
+      
+      # create string discards from the discarded cards
+      discards<- paste(c(
+        paste(c(hand[i,1],hand[i,2]),collapse=""),
+        paste(c(hand[j,1],hand[j,2]),collapse="")  
+      ),collapse=",")
+      
+      # use rbind to populate data.table using calculateOneHand
+      allCombos<- rbind(allCombos,calculateOneHand(chosenHand, discards))
+    }
   }
+  
+  return(allCombos)
 }
+
+```
 
 
 
@@ -584,9 +634,60 @@ Options could be:
 When ported to Shiny it may be possible to display the tabular data with an option to dsiplay specific graphs or a range of the top ones  
 
 
+## getting and summarising the data
+
+```{r}
+
+# get the data
+allHands<-calculateAllHands(hand)
+
+# summarise the data based on the playerHand
+summarisedHands <- dd[ , .(sumPoints = sum(score),
+                           minVal = min(score),
+                           maxVal = max(score),
+                           meanVal = mean(score),
+                           stdev = sd(score),
+                           median = median(score)) , by = playerHand]
+
+```
 
 
+## plotting the data
 
+```{r}
+# add ggplot
+require(ggplot2)
+
+# create the box and dot plots -- as it is will plot all from parent environment, could pass the hands in though
+plotHands<- function(){
+  p<- ggplot(allHands, aes(x=playerHand, y= score))
+  p<- p + geom_boxplot(fill='#56B4E9', color="black", outlier.shape = NA) +  theme_minimal() # change colour of boxplot
+  p<- p + geom_dotplot(binaxis = 'y', stackdir = 'centerwhole' , dotsize = .5, stackratio = .2,
+                       color ="red", fill = "red", alpha = .2) # add points over the boxplot
+  p<- p + theme(axis.text.x=element_text(angle=45,hjust=1,vjust=1, size = 14),
+                axis.title.x = element_blank())
+  p<- p + scale_y_continuous(breaks = round(seq(min(allHands$score), max(allHands$score), by = 1),1)) # show y axis ticks per 1
+  p
+}
+
+# get vector of playerhand combinations
+handsList<- summarisedHands[ , playerHand]
+
+
+# have histogram always 0 - 29 - value in handsList = the hand to plot
+plotHand<- function(i){
+  q<- ggplot(data = allHands, aes(allHands[playerHand == handsList[i],score])) +
+    geom_histogram(breaks = seq(0, 29, by = 1),
+                   col = "red",
+                   fill = "blue",
+                   alpha = .3) +
+    scale_x_continuous(breaks = 1:29,
+                       limits = c(0, 29))
+  q
+}
+
+
+```
 
 
 

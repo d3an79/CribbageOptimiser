@@ -440,21 +440,67 @@ calculateAllHands<- function(hand)
 
 
 ```
-a <- 1:6
 
-for(i in 1:5)
-{
-  for(j in i+1:(6-i))
-  {
-    print(c(i,j))
-    # use index i and j to discard cards and create hand
-    
-    # loop to go through each remaining card in the pack as the cut card and work out points
-    
-      # function to calculate points here
-  }
-}
 
+
+# summarising the data
+
+```{r}
+
+# get the data
+dd<-calculateAllHands(hand)
+
+# summarise the data based on the playerHand
+ds <- dd[ , .(sumPoints = sum(score),
+              minVal = min(score),
+              maxVal = max(score),
+              meanVal = mean(score),
+              stdev = sd(score),
+              median = median(score)) , by = playerHand]
+
+
+# add ggplot
+require(ggplot2)
+
+
+
+# create the plot
+p<- ggplot(dd, aes(x=playerHand, y= score))
+p<- p + geom_boxplot(fill='#56B4E9', color="black", outlier.shape = NA) +  theme_minimal() # change colour of boxplot
+p<- p + geom_dotplot(binaxis = 'y', stackdir = 'centerwhole' , dotsize = .5, stackratio = .2,
+                     color ="red", fill = "red", alpha = .2) # add points over the boxplot
+p<- p + theme(axis.text.x=element_text(angle=45,hjust=1,vjust=1, size = 14),
+              axis.title.x = element_blank())
+p<- p + scale_y_continuous(breaks = round(seq(min(dd$score), max(dd$score), by = 1),1)) # show y axis ticks per 1
+p
+
+
+
+
+
+# get vector of playerhand combinations
+hands<- ds[ , playerHand]
+# show histogram for hands[i]
+hist(dd[playerHand == hands[5],score])
+
+
+# have histogram always 0 - 29
+q<- ggplot(data = dd, aes(dd[playerHand == hands[11],score])) +
+  geom_histogram(breaks = seq(0, 29, by = 1),
+                 col = "red",
+                 fill = "blue",
+                 alpha = .3) +
+  scale_x_continuous(breaks = 1:29,
+                     limits = c(0, 29))
+q
+
+
+
+
+
+qplot(dd[playerHand == hands[1],score], geom = "histogram")
+
+```
 
 
 
